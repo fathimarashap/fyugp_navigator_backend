@@ -4,6 +4,10 @@ from flask import Flask, request, jsonify
 from groq import Groq
 from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
+import re
+
+def normalize_semester_refs(text):
+    return re.sub(r'\bsem(?:ester)?\.?\s*(\d)\b', r'semesternum\1', text, flags=re.IGNORECASE)
 
 load_dotenv()
 
@@ -21,7 +25,8 @@ documents = tfidf_data["documents"]
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 def get_relevant_chunks(question, n_results=5):
-    query_vector = vectorizer.transform([question])
+    normalized_question = normalize_semester_refs(question)
+    query_vector = vectorizer.transform([normalized_question])
     similarities = cosine_similarity(query_vector, tfidf_matrix).flatten()
     top_indices = similarities.argsort()[-n_results:][::-1]
     return [documents[i] for i in top_indices]
