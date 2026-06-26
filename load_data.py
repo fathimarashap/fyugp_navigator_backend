@@ -12,7 +12,7 @@ ids = [chunk["id"] for chunk in chunks]
 topics = [chunk["topic"] for chunk in chunks]
 
 # Build TF-IDF vectorizer and matrix
-vectorizer = TfidfVectorizer(stop_words='english')
+vectorizer = TfidfVectorizer()
 tfidf_matrix = vectorizer.fit_transform(documents)
 
 # Save everything needed for retrieval later

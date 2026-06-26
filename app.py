@@ -20,7 +20,7 @@ documents = tfidf_data["documents"]
 # Initialize Groq
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-def get_relevant_chunks(question, n_results=3):
+def get_relevant_chunks(question, n_results=5):
     query_vector = vectorizer.transform([question])
     similarities = cosine_similarity(query_vector, tfidf_matrix).flatten()
     top_indices = similarities.argsort()[-n_results:][::-1]
