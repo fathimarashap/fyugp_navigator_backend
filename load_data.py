@@ -5,34 +5,37 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 def normalize_semester_refs(text):
-    """Converts 'Sem 4', 'Semester 4', 'sem4' etc into a single token 'semesternum4'
-    so TF-IDF treats the semester number as one strong, exact-matching term
-    instead of diluting it across generic digit tokens."""
-    text = re.sub(r'\bsem(?:ester)?\.?\s*(\d)\b', r'semesternum\1', text, flags=re.IGNORECASE)
-    return text
+    return re.sub(r'\bsem(?:ester)?\.?\s*(\d)\b', r'semesternum\1', text, flags=re.IGNORECASE)
 
 
-# Load chunks from JSON
 with open("data/chunks.json", "r") as f:
     data = json.load(f)
 
 chunks = data["chunks"]
-documents = [normalize_semester_refs(chunk["content"]) for chunk in chunks]
+
+boosted_documents = []
+for chunk in chunks:
+    content = chunk["content"]
+    match = re.match(r'semester(\d)_courses', chunk["id"])
+    if match:
+        num = match.group(1)
+        boost = f"Semester {num} Semester {num} Semester {num} course list courses subjects. " * 3
+        content = boost + content
+    boosted_documents.append(normalize_semester_refs(content))
+
 ids = [chunk["id"] for chunk in chunks]
 topics = [chunk["topic"] for chunk in chunks]
 
-# Build TF-IDF vectorizer and matrix
 vectorizer = TfidfVectorizer()
-tfidf_matrix = vectorizer.fit_transform(documents)
+tfidf_matrix = vectorizer.fit_transform(boosted_documents)
 
-# Save everything needed for retrieval later
 with open("tfidf_data.pkl", "wb") as f:
     pickle.dump({
         "vectorizer": vectorizer,
         "tfidf_matrix": tfidf_matrix,
-        "documents": [chunk["content"] for chunk in chunks],  # store ORIGINAL text for the LLM context
+        "documents": [chunk["content"] for chunk in chunks],  # original text for LLM context
         "ids": ids,
         "topics": topics
     }, f)
 
-print(f"Successfully indexed {len(chunks)} chunks using TF-IDF with semester normalization")
+print(f"Successfully indexed {len(chunks)} chunks with semester boosting")
