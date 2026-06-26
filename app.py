@@ -1,30 +1,34 @@
 import os
+import pickle
 from flask import Flask, request, jsonify
-import chromadb
 from groq import Groq
 from dotenv import load_dotenv
+from sklearn.metrics.pairwise import cosine_similarity
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# Initialize ChromaDB
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
-collection = chroma_client.get_or_create_collection(name="fyugp_navigator")
+# Load TF-IDF data once at startup
+with open("tfidf_data.pkl", "rb") as f:
+    tfidf_data = pickle.load(f)
+
+vectorizer = tfidf_data["vectorizer"]
+tfidf_matrix = tfidf_data["tfidf_matrix"]
+documents = tfidf_data["documents"]
 
 # Initialize Groq
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 def get_relevant_chunks(question, n_results=3):
-    results = collection.query(
-        query_texts=[question],
-        n_results=n_results
-    )
-    return results["documents"][0]
+    query_vector = vectorizer.transform([question])
+    similarities = cosine_similarity(query_vector, tfidf_matrix).flatten()
+    top_indices = similarities.argsort()[-n_results:][::-1]
+    return [documents[i] for i in top_indices]
 
 def build_prompt(question, chunks):
     context = "\n\n".join(chunks)
-    return f"""You are a helpful assistant for BSc Computer Science Honours students under Calicut University FYUG Regulations . You help students understand their FYUGP degree programme rules, eligibility criteria, grading system, and regulations.
+    return f"""You are a helpful assistant for BSc Computer Science Honours students under the CUFYUGP Regulations 2024 (University of Calicut). You help students understand their FYUGP degree programme rules, eligibility criteria, grading system, and regulations.
 
 Answer the student question using only the information provided in the context below. If the answer is not in the context, say I do not have information about that. Please check with your department or refer to the official syllabus document. Do not make up information.
 

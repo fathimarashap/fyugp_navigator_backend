@@ -1,35 +1,28 @@
-import chromadb
 import json
-
-# Initialize ChromaDB
-client = chromadb.PersistentClient(path="./chroma_db")
-
-# Create collection
-collection = client.get_or_create_collection(
-    name="fyugp_navigator",
-    metadata={"hnsw:space": "cosine"}
-)
+import pickle
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Load chunks from JSON
 with open("data/chunks.json", "r") as f:
     data = json.load(f)
 
 chunks = data["chunks"]
+documents = [chunk["content"] for chunk in chunks]
+ids = [chunk["id"] for chunk in chunks]
+topics = [chunk["topic"] for chunk in chunks]
 
-# Add chunks to ChromaDB
-documents = []
-ids = []
-metadatas = []
+# Build TF-IDF vectorizer and matrix
+vectorizer = TfidfVectorizer(stop_words='english')
+tfidf_matrix = vectorizer.fit_transform(documents)
 
-for chunk in chunks:
-    documents.append(chunk["content"])
-    ids.append(chunk["id"])
-    metadatas.append({"topic": chunk["topic"]})
+# Save everything needed for retrieval later
+with open("tfidf_data.pkl", "wb") as f:
+    pickle.dump({
+        "vectorizer": vectorizer,
+        "tfidf_matrix": tfidf_matrix,
+        "documents": documents,
+        "ids": ids,
+        "topics": topics
+    }, f)
 
-collection.add(
-    documents=documents,
-    ids=ids,
-    metadatas=metadatas
-)
-
-print(f"Successfully loaded {len(chunks)} chunks into ChromaDB")
+print(f"Successfully indexed {len(chunks)} chunks using TF-IDF")
